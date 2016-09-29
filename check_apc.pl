@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 #
-# check_apc.pl v1.0
+# check_apc.pl v1.1
 #
 # Nagios plugin script for checking APC Uninteruptible Power Supplies.
 #
 # License: GPL v2
-# Copyright (c) 2012 LayerThree B.V.
+# Copyright (c) 2012-2016 LayerThree B.V.
 # Author: Michael van den Berg
 # http://www.layerthree.nl
 #
@@ -42,6 +42,7 @@ Commands (supplied with -l argument):
 
 	status
 	  Shows output status of UPS (On battery power, bypass, etc)
+	  Optional warning or critical values for minimum runtime in minutes.
 
 	health
 	  Shows result of last diagnostic test and date run. Optional warning or critical
@@ -130,18 +131,34 @@ if(!defined $options{l}){  # If no command was given, just output the UPS model
 			if ($ups_status == 2 || $ups_status == 3){  # Only get remaining runtime if under power or battery
 				my $ups_runtime_ticks = query_oid($oid_runtimeleft);
 				$ups_runtime_mins = int($ups_runtime_ticks / 100 / 60);
-                        	$perf_data = "|'Runtime Remaining'=$ups_runtime_mins"."m;";
+				$perf_data = sprintf("|'Runtime Remaining'=%sm;%s;%s;0;", $ups_runtime_mins, $warning_threshold // '', $critical_threshold // '');
 			}
 			$session->close();
 			
 			switch($ups_status){
-		  		case 2{ # This means all is good - the only good result of this check
-					print "OK: UPS is online (Runtime remaining: $ups_runtime_mins minutes)$perf_data\n";
-					exit $OKAY;
+				case 2{ # UPS is OK and not running on battery
+					if (defined $critical_threshold && $ups_runtime_mins < $critical_threshold){
+						print "CRITICAL: Runtime remaining: $ups_runtime_mins minutes (< $critical_threshold minutes)$perf_data\n";
+						exit $CRITICAL;
+					}elsif(defined $warning_threshold && $ups_runtime_mins < $warning_threshold){
+						print "WARNING: Runtime remaining: $ups_runtime_mins minutes (< $warning_threshold minutes)$perf_data\n";
+						exit $WARNING;
+					}else{
+						print "OK: UPS is online (Runtime remaining: $ups_runtime_mins minutes)$perf_data\n";
+						exit $OKAY;
+					}
 				}
 				case 3{	# UPS is running on battery
-					print "CRITICAL: On battery power (Runtime remaining: $ups_runtime_mins minutes)$perf_data\n";
-					exit $CRITICAL;
+					if (defined $critical_threshold && $ups_runtime_mins < $critical_threshold){
+						print "CRITICAL: On battery power, runtime remaining: $ups_runtime_mins minutes (< $critical_threshold minutes)$perf_data\n";
+						exit $CRITICAL;
+					}elsif(defined $warning_threshold && $ups_runtime_mins < $warning_threshold){
+						print "WARNING: On battery power, runtime remaining: $ups_runtime_mins minutes (< $warning_threshold minutes)$perf_data\n";
+						exit $WARNING;
+					}else{
+						print "CRITICAL: On battery power, runtime remaining: $ups_runtime_mins minutes)$perf_data\n";
+						exit $CRITICAL;
+					}
 				}
 				case 7{ # The UPS is off
 					print "CRITICAL: UPS is offline!\n"
