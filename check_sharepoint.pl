@@ -74,7 +74,7 @@ Notes:
 - Connections are always assumed to be https unless the -http option is used
 - Forms authentication is always assumed to be via a ISA/TMG server.
 - libcurl must have NTML listed in its features in order for integrated (NTML) authentication 
-  to work. Runing 'curl-config --features' will show if this is present. 
+  to work. Running 'curl --version' will show if this is present. 
 
 END
 
@@ -124,7 +124,7 @@ if(defined $show_version){
 }
 
 # Check that libcurl has ntlm support - if it isn't and forms is not use, quit with UNKNOWN
-my $curl_features = `curl-config --features`;
+my $curl_features = `curl --version`;
 my $ntlm_present = ($curl_features =~ m/NTLM/) ? 1 : 0;
 
 if (!defined $forms_auth && !$ntlm_present){
